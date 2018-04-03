@@ -1,3 +1,8 @@
+"""
+The pack_size equals to the training/test sample row_size/1024
+
+"""
+
 import pickle
 import random
 import time
