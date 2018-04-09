@@ -17,7 +17,8 @@ flags.DEFINE_string('summaries_dir', '/tmp/dssm-400-120-relu', 'Summaries direct
 flags.DEFINE_float('learning_rate', 0.1, 'Initial learning rate.')
 flags.DEFINE_integer('max_steps', 900000, 'Number of steps to run trainer.')
 flags.DEFINE_integer('epoch_steps', 18000, "Number of steps in one epoch.")
-flags.DEFINE_integer('pack_size', 2000, "Number of batches in one pickle pack.")
+flags.DEFINE_integer('pack_size', 2000, "Number of batches in one pickle pack for the training data.")
+flags.DEFINE_integer('test_pack_size', 2000, "Number of batches in one pickle pack for the test data.")
 flags.DEFINE_bool('gpu', 1, "Enable GPU or not")
 
 start = time.time()
@@ -213,11 +214,11 @@ with tf.Session(config=config) as sess:
                     (step / FLAGS.epoch_steps, epoch_loss, end - start))
 
             epoch_loss = 0
-            for i in range(FLAGS.pack_size):
+            for i in range(FLAGS.test_pack_size):
                 loss_v = sess.run(loss, feed_dict=feed_dict(False, i))
                 epoch_loss += loss_v
 
-            epoch_loss /= FLAGS.pack_size
+            epoch_loss /= FLAGS.test_pack_size
 
             test_loss = sess.run(loss_summary, feed_dict={average_loss: epoch_loss})
             test_writer.add_summary(test_loss, step + 1)
