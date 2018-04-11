@@ -3,12 +3,18 @@ import numpy as np
 from scipy.sparse import coo_matrix
 
 if len(sys.argv) < 3:
-    print("USAGE: python text2matrix.py {traindatafile} {testdatafile}")
+    print("USAGE: python text2matrix.py {traindatafile} {testdatafile} [true or 1 to use 0/1 feature instead of frequencies]")
     print("only process the top valid 2000*1024 pairs for both train data and test data")
     sys.exit(-1)
 
 train_data_file = sys.argv[1]
 test_data_file = sys.argv[2]
+use_bool_feature = False
+
+if len(sys.argv) >= 4:
+    if sys.argv[3].lower() == 'true' or sys.argv[3] == '1':
+        use_bool_feature = True
+    
 
 def build_voc_dict():
     voc_dict = {}
@@ -110,11 +116,17 @@ def write_matrix(filename, qfile, dfile, voc_dict):
             for k in qdict:
                 qrow.append(feature_rows)
                 qcolumn.append(k)
-                qdata.append(qdict[k])
+                if use_bool_feature:
+                    qdata.append(1)
+                else:
+                    qdata.append(qdict[k])
             for k in ddict:
                 drow.append(feature_rows)
                 dcolumn.append(k)
-                ddata.append(ddict[k])
+                if use_bool_feature:
+                    ddata.append(1)
+                else:
+                    ddata.append(ddict[k])
             feature_rows += 1
         qmatrix = coo_matrix((qdata, (qrow, qcolumn)), shape=(feature_rows, len(voc_dict)))
         dmatrix = coo_matrix((ddata, (drow, dcolumn)), shape=(feature_rows, len(voc_dict)))
