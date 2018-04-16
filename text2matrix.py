@@ -130,6 +130,7 @@ def write_matrix(filename, qfile, dfile, voc_dict):
                 else:
                     ddata.append(ddict[k])
             feature_rows += 1
+        print("file:{0} scanned {1} rows", filename, read_line)
         qmatrix = coo_matrix((qdata, (qrow, qcolumn)), shape=(feature_rows, len(voc_dict)))
         dmatrix = coo_matrix((ddata, (drow, dcolumn)), shape=(feature_rows, len(voc_dict)))
         with open(qfile,'wb') as f:
