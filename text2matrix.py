@@ -1,18 +1,20 @@
 import pickle,sys
 import numpy as np
+import os
 from scipy.sparse import coo_matrix
 
-if len(sys.argv) < 3:
-    print("USAGE: python text2matrix.py {traindatafile} {testdatafile} [true or 1 to use 0/1 feature instead of frequencies]")
+if len(sys.argv) < 4:
+    print("USAGE: python text2matrix.py {traindatafile} {testdatafile} {output directory} [true or 1 to use 0/1 feature instead of frequencies]")
     print("only process the top valid 2000*1024 pairs for both train data and test data")
     sys.exit(-1)
 
 train_data_file = sys.argv[1]
 test_data_file = sys.argv[2]
+output_dir = sys.argv[3]
 use_bool_feature = False
 
-if len(sys.argv) >= 4:
-    if sys.argv[3].lower() == 'true' or sys.argv[3] == '1':
+if len(sys.argv) >= 5:
+    if sys.argv[4].lower() == 'true' or sys.argv[3] == '1':
         use_bool_feature = True
     
 
@@ -136,5 +138,9 @@ def write_matrix(filename, qfile, dfile, voc_dict):
             pickle.dump(dmatrix,f)
 
 voc_dict = build_voc_dict()
-write_matrix(train_data_file, "query.train.pickle", "doc.train.pickle", voc_dict)
-write_matrix(test_data_file, "query.test.pickle", "doc.test.pickle", voc_dict)
+qtrain_pickle_f = os.path.join(output_dir, "query.train.pickle")
+dtrain_pickle_f = os.path.join(output_dir, "doc.train.pickle")
+qtest_pickle_f = os.path.join(output_dir, "query.test.pickle")
+dtest_pickle_f = os.path.join(output_dir, "doc.test.pickle")
+write_matrix(train_data_file, qtrain_pickle_f, dtrain_pickle_f, voc_dict)
+write_matrix(test_data_file, qtest_pickle_f, dtest_pickle_f, voc_dict)
