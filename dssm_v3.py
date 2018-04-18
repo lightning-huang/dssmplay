@@ -108,10 +108,9 @@ with tf.name_scope('FD_rotate'):
 
     for i in range(NEG):
         rand = int((random.random() + i) * BS / NEG)
-        doc_y = tf.concat(0,
-                          [doc_y,
+        doc_y = tf.concat([doc_y,
                            tf.slice(temp, [rand, 0], [BS - rand, -1]),
-                           tf.slice(temp, [0, 0], [rand, -1])])
+                           tf.slice(temp, [0, 0], [rand, -1])], 0)
 
 with tf.name_scope('Cosine_Similarity'):
     # Cosine similarity
@@ -129,8 +128,13 @@ with tf.name_scope('Loss'):
     # prob BS * 51 matrix
     # prob = tf.nn.softmax((cos_sim))
     # y BS * 51 matrix too
-    rightValue = np.array([[1] + [0] * 50] * BS)
-    loss = tf.losses.sparse_softmax_cross_entropy(labels = rightValue, logits = cos_sim)
+    rightValue = np.array([[1, 0]] * BS)
+    
+    yesvalue = tf.slice(cos_sim, [0, 0], [-1, 1], 'hitprob')
+    novalue = tf.slice(cos_sim, [0, 1], [-1, -1], 'hitprob')
+    novaluesum = tf.reduce_sum(novalue, 1)
+    binarylogit = tf.concat([yesvalue, novaluesum], 0)
+    loss = tf.losses.softmax_cross_entropy(labels = rightValue, logits = binarylogit)
     tf.scalar_summary('loss', loss)
 
 with tf.name_scope('Evaluate'):
