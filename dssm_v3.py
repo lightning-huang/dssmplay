@@ -132,7 +132,7 @@ with tf.name_scope('Loss'):
     
     yesvalue = tf.slice(cos_sim, [0, 0], [-1, 1], 'hitprob')
     novalue = tf.slice(cos_sim, [0, 1], [-1, -1], 'hitprob')
-    novaluesum = tf.reduce_sum(novalue, 1)
+    novaluesum = tf.reduce_sum(novalue, 1, keepdims=True)
     binarylogit = tf.concat([yesvalue, novaluesum], 0)
     loss = tf.losses.softmax_cross_entropy(labels = rightValue, logits = binarylogit)
     tf.scalar_summary('loss', loss)
