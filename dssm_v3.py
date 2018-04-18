@@ -133,6 +133,10 @@ with tf.name_scope('Loss'):
     loss = tf.losses.sparse_softmax_cross_entropy(labels = rightValue, logits = cos_sim)
     tf.scalar_summary('loss', loss)
 
+with tf.name_scope('Evaluate'):
+    prob = tf.nn.softmax(cos_sim)
+    hitprob = tf.slice(prob, [0, 0], [-1, 1], 'hitprob')
+
 with tf.name_scope('Training'):
     # Optimizer
     train_step = tf.train.GradientDescentOptimizer(FLAGS.learning_rate).minimize(loss)
