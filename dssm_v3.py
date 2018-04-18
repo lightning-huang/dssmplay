@@ -127,10 +127,10 @@ with tf.name_scope('Cosine_Similarity'):
 with tf.name_scope('Loss'):
     # Train Loss
     # prob BS * 51 matrix
-    prob = tf.nn.softmax((cos_sim))
+    # prob = tf.nn.softmax((cos_sim))
     # y BS * 51 matrix too
     rightValue = np.array([[1] + [0] * 50] * BS)
-    loss = tf.losses.sparse_softmax_cross_entropy(labels = rightValue, logits = prob)
+    loss = tf.losses.sparse_softmax_cross_entropy(labels = rightValue, logits = cos_sim)
     tf.scalar_summary('loss', loss)
 
 with tf.name_scope('Training'):
