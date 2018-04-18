@@ -4,13 +4,15 @@ import os,scipy
 from scipy.sparse import coo_matrix
 
 if len(sys.argv) < 4:
-    print("USAGE: python text2matrix.py {traindatafile} {testdatafile} {output directory} [true or 1 to use 0/1 feature instead of frequencies]")
+    print("USAGE: python text2matrix.py {datafile} {output directory} {output_prefix} [true or 1 to use 0/1 feature instead of frequencies]")
+    print("for example: python text2matrix xxx.tsv d:\\data train")
     print("only process the top valid 2000*1024 pairs for both train data and test data")
     sys.exit(-1)
 
-train_data_file = sys.argv[1]
-test_data_file = sys.argv[2]
-output_dir = sys.argv[3]
+data_file = sys.argv[1]
+output_dir = sys.argv[2]
+file_prefix = sys.argv[3]
+
 use_bool_feature = False
 
 if len(sys.argv) >= 5:
@@ -135,9 +137,7 @@ def write_matrix(filename, qfile, dfile, voc_dict):
         scipy.sparse.save_npz(dfile, dmatrix)
 
 voc_dict = build_voc_dict()
-qtrain_pickle_f = os.path.join(output_dir, "query.train.npz")
-dtrain_pickle_f = os.path.join(output_dir, "doc.train.npz")
-qtest_pickle_f = os.path.join(output_dir, "query.test.npz")
-dtest_pickle_f = os.path.join(output_dir, "doc.test.npz")
-write_matrix(train_data_file, qtrain_pickle_f, dtrain_pickle_f, voc_dict)
-write_matrix(test_data_file, qtest_pickle_f, dtest_pickle_f, voc_dict)
+q_npz_file = os.path.join(output_dir, "query." + file_prefix + ".npz")
+d_npz_file = os.path.join(output_dir, "doc." + file_prefix + ".npz")
+
+write_matrix(data_file, q_npz_file, d_npz_file, voc_dict)
