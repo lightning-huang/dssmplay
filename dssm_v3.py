@@ -130,8 +130,8 @@ with tf.name_scope('Loss'):
     # y BS * 51 matrix too
     rightValue = np.array([[1, 0]] * BS)
     
-    yesvalue = tf.slice(cos_sim, [0, 0], [-1, 1], 'hitprob')
-    novalue = tf.slice(cos_sim, [0, 1], [-1, -1], 'hitprob')
+    yesvalue = tf.slice(cos_sim, [0, 0], [-1, 1])
+    novalue = tf.slice(cos_sim, [0, 1], [-1, -1])
     novaluesum = tf.reduce_sum(novalue, 1, keepdims=True)
     binarylogit = tf.concat([yesvalue, novaluesum], 0)
     loss = tf.losses.softmax_cross_entropy(labels = rightValue, logits = binarylogit)
