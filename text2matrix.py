@@ -1,6 +1,6 @@
 import pickle,sys
 import numpy as np
-import os
+import os,scipy
 from scipy.sparse import coo_matrix
 
 if len(sys.argv) < 4:
@@ -113,8 +113,6 @@ def write_matrix(filename, qfile, dfile, voc_dict):
             if len(qdict) <= 0 or len(ddict) <= 0:
                 print("drop empty feature line for q or d, LN:%s"%read_line)
                 continue
-            if feature_rows >= 2000*1024:
-                break
             for k in qdict:
                 qrow.append(feature_rows)
                 qcolumn.append(k)
@@ -130,18 +128,16 @@ def write_matrix(filename, qfile, dfile, voc_dict):
                 else:
                     ddata.append(ddict[k])
             feature_rows += 1
-        print("file:{0} scanned {1} rows", filename, read_line)
+        print("file:%s scanned %s rows, featurized %s rows"%(filename, read_line, feature_rows))
         qmatrix = coo_matrix((qdata, (qrow, qcolumn)), shape=(feature_rows, len(voc_dict)))
         dmatrix = coo_matrix((ddata, (drow, dcolumn)), shape=(feature_rows, len(voc_dict)))
-        with open(qfile,'wb') as f:
-            pickle.dump(qmatrix,f)
-        with open(dfile,'wb') as f:
-            pickle.dump(dmatrix,f)
+        scipy.sparse.save_npz(qfile, qmatrix)
+        scipy.sparse.save_npz(dfile, dmatrix)
 
 voc_dict = build_voc_dict()
-qtrain_pickle_f = os.path.join(output_dir, "query.train.pickle")
-dtrain_pickle_f = os.path.join(output_dir, "doc.train.pickle")
-qtest_pickle_f = os.path.join(output_dir, "query.test.pickle")
-dtest_pickle_f = os.path.join(output_dir, "doc.test.pickle")
+qtrain_pickle_f = os.path.join(output_dir, "query.train.npz")
+dtrain_pickle_f = os.path.join(output_dir, "doc.train.npz")
+qtest_pickle_f = os.path.join(output_dir, "query.test.npz")
+dtest_pickle_f = os.path.join(output_dir, "doc.test.npz")
 write_matrix(train_data_file, qtrain_pickle_f, dtrain_pickle_f, voc_dict)
 write_matrix(test_data_file, qtest_pickle_f, dtest_pickle_f, voc_dict)
