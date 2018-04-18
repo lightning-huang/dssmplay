@@ -1,24 +1,24 @@
 """
-The pack_size equals to the training/test sample row_size/1024
+train pack size and test pack size are total rows amount devide by 1024, our batch to back propagation is 1024
 
 """
 
 import pickle
 import random
-import time
-import sys
+import time, scipy
+import sys, os
 import numpy as np
 import tensorflow as tf
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('summaries_dir', '/tmp/dssm-400-120-relu', 'Summaries directory')
+flags.DEFINE_string('datadir', '.', 'Data Directory')
+flags.DEFINE_string('outputdir', '.', 'Model Directory')
+flags.DEFINE_string('logdir', '/tmp/dssm-400-120-relu', 'Summaries directory')
 flags.DEFINE_float('learning_rate', 0.1, 'Initial learning rate.')
 flags.DEFINE_integer('max_steps', 900000, 'Number of steps to run trainer.')
 flags.DEFINE_integer('epoch_steps', 18000, "Number of steps in one epoch.")
-flags.DEFINE_integer('pack_size', 2000, "Number of batches in one pickle pack for the training data.")
-flags.DEFINE_integer('test_pack_size', 2000, "Number of batches in one pickle pack for the test data.")
 flags.DEFINE_bool('gpu', 1, "Enable GPU or not")
 
 start = time.time()
@@ -27,11 +27,18 @@ doc_train_data = None
 query_train_data = None
 
 # load test data for now
-query_test_data = pickle.load(open('../data/query.test.pickle', 'rb')).tocsr()
-doc_test_data = pickle.load(open('../data/doc.test.pickle', 'rb')).tocsr()
+query_test_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'query.test.npz')).tocsr()
+doc_test_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'doc.test.npz')).tocsr()
 
-doc_train_data = pickle.load(open('../data/doc.train.pickle', 'rb')).tocsr()
-query_train_data = pickle.load(open('../data/query.train.pickle', 'rb')).tocsr()
+doc_train_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'doc.train.npz')).tocsr()
+query_train_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'query.train.npz')).tocsr()
+
+train_pack_size = int(query_train_data.shape[0] / 1024)
+test_pack_size = int(query_test_data.shape[0] / 1024)
+
+if train_pack_size == 0 or test_pack_size == 0:
+    print("either train data rows or test data rows are less than 1024")
+    sys.exit(-1)
 
 end = time.time()
 print("Loading data from HDD to memory: %.2fs" % (end - start))
@@ -119,9 +126,11 @@ with tf.name_scope('Cosine_Similarity'):
 
 with tf.name_scope('Loss'):
     # Train Loss
+    # prob BS * 51 matrix
     prob = tf.nn.softmax((cos_sim))
-    hit_prob = tf.slice(prob, [0, 0], [-1, 1])
-    loss = -tf.reduce_sum(tf.log(hit_prob)) / BS
+    # y BS * 51 matrix too
+    rightValue = np.array([[1] + [0] * 50] * BS)
+    loss = tf.losses.sparse_softmax_cross_entropy(labels = rightValue, logits = prob)
     tf.scalar_summary('loss', loss)
 
 with tf.name_scope('Training'):
@@ -180,11 +189,12 @@ config = tf.ConfigProto()  # log_device_placement=True)
 config.gpu_options.allow_growth = True
 #if not FLAGS.gpu:
 #config = tf.ConfigProto(device_count= {'GPU' : 0})
+saver = tf.train.Saver()
 
 with tf.Session(config=config) as sess:
     sess.run(tf.initialize_all_variables())
-    train_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train', sess.graph)
-    test_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test', sess.graph)
+    train_writer = tf.train.SummaryWriter(os.path.join(FLAGS.logdir, 'train'), sess.graph)
+    test_writer = tf.train.SummaryWriter(os.path.join(FLAGS.logdir, 'test'), sess.graph)
 
     # Actual execution
     start = time.time()
@@ -192,21 +202,21 @@ with tf.Session(config=config) as sess:
     for step in range(FLAGS.max_steps):
         batch_idx = step % FLAGS.epoch_steps
 
-        if batch_idx % (FLAGS.pack_size / 64) == 0:
+        if batch_idx % (train_pack_size / 64) == 0:
             progress = 100.0 * batch_idx / FLAGS.epoch_steps
             sys.stdout.write("\r%.2f%% Epoch" % progress)
             sys.stdout.flush()
 
-        sess.run(train_step, feed_dict=feed_dict(True, batch_idx % FLAGS.pack_size))
+        sess.run(train_step, feed_dict=feed_dict(True, batch_idx % train_pack_size))
 
         if batch_idx == FLAGS.epoch_steps - 1:
             end = time.time()
             epoch_loss = 0
-            for i in range(FLAGS.pack_size):
+            for i in range(train_pack_size):
                 loss_v = sess.run(loss, feed_dict=feed_dict(True, i))
                 epoch_loss += loss_v
 
-            epoch_loss /= FLAGS.pack_size
+            epoch_loss /= train_pack_size
             train_loss = sess.run(loss_summary, feed_dict={average_loss: epoch_loss})
             train_writer.add_summary(train_loss, step + 1)
 
@@ -214,11 +224,11 @@ with tf.Session(config=config) as sess:
                     (step / FLAGS.epoch_steps, epoch_loss, end - start))
 
             epoch_loss = 0
-            for i in range(FLAGS.test_pack_size):
+            for i in range(test_pack_size):
                 loss_v = sess.run(loss, feed_dict=feed_dict(False, i))
                 epoch_loss += loss_v
 
-            epoch_loss /= FLAGS.test_pack_size
+            epoch_loss /= test_pack_size
 
             test_loss = sess.run(loss_summary, feed_dict={average_loss: epoch_loss})
             test_writer.add_summary(test_loss, step + 1)
@@ -226,3 +236,4 @@ with tf.Session(config=config) as sess:
             start = time.time()
             print ("Epoch #%-5d | Test  Loss: %-4.3f | Calc_LossTime: %-3.3fs" %
                    (step / FLAGS.epoch_steps, epoch_loss, start - end))
+        saver.save(sess, os.path.join(FLAGS.outputdir, 'my-model')
