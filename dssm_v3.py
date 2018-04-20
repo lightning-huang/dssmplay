@@ -1,11 +1,11 @@
 """
 train pack size and test pack size are total rows amount devide by 1024, our batch to back propagation is 1024
-
 """
 
 import pickle
 import random
 import time, scipy
+import scipy.sparse
 import sys, os
 import numpy as np
 import tensorflow as tf
@@ -29,12 +29,13 @@ query_train_data = None
 # load test data for now
 query_test_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'query.test.npz')).tocsr()
 doc_test_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'doc.test.npz')).tocsr()
-
+print("query test rows:%s, doc test rows:%s"%(query_test_data.shape[0], doc_test_data.shape[0]))
 doc_train_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'doc.train.npz')).tocsr()
 query_train_data = scipy.sparse.load_npz(os.path.join(FLAGS.datadir,'query.train.npz')).tocsr()
-
+print("query train rows:%s, doc train rows:%s"%(query_train_data.shape[0], doc_train_data.shape[0]))
 train_pack_size = int(query_train_data.shape[0] / 1024)
 test_pack_size = int(query_test_data.shape[0] / 1024)
+print("test pack size:%s, train pack size:%s"%(test_pack_size, train_pack_size))
 
 if train_pack_size == 0 or test_pack_size == 0:
     print("either train data rows or test data rows are less than 1024")
@@ -59,20 +60,20 @@ def variable_summaries(var, name):
     """Attach a lot of summaries to a Tensor."""
     with tf.name_scope('summaries'):
         mean = tf.reduce_mean(var)
-        tf.scalar_summary('mean/' + name, mean)
+        tf.summary.scalar('mean/' + name, mean)
         with tf.name_scope('stddev'):
             stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
-        tf.scalar_summary('sttdev/' + name, stddev)
-        tf.scalar_summary('max/' + name, tf.reduce_max(var))
-        tf.scalar_summary('min/' + name, tf.reduce_min(var))
-        tf.histogram_summary(name, var)
+        tf.summary.scalar('sttdev/' + name, stddev)
+        tf.summary.scalar('max/' + name, tf.reduce_max(var))
+        tf.summary.scalar('min/' + name, tf.reduce_min(var))
+        tf.summary.histogram(name, var)
 
 
 with tf.name_scope('input'):
     # Shape [BS, TRIGRAM_D].
-    query_batch = tf.sparse_placeholder(tf.float32, shape=query_in_shape, name='QueryBatch')
+    query_batch = tf.sparse_placeholder(tf.float32, name='QueryBatch')
     # Shape [BS, TRIGRAM_D]
-    doc_batch = tf.sparse_placeholder(tf.float32, shape=doc_in_shape, name='DocBatch')
+    doc_batch = tf.sparse_placeholder(tf.float32, name='DocBatch')
 
 with tf.name_scope('L1'):
     l1_par_range = np.sqrt(6.0 / (TRIGRAM_D + L1_N))
@@ -117,8 +118,8 @@ with tf.name_scope('Cosine_Similarity'):
     query_norm = tf.tile(tf.sqrt(tf.reduce_sum(tf.square(query_y), 1, True)), [NEG + 1, 1])
     doc_norm = tf.sqrt(tf.reduce_sum(tf.square(doc_y), 1, True))
 
-    prod = tf.reduce_sum(tf.mul(tf.tile(query_y, [NEG + 1, 1]), doc_y), 1, True)
-    norm_prod = tf.mul(query_norm, doc_norm)
+    prod = tf.reduce_sum(tf.multiply(tf.tile(query_y, [NEG + 1, 1]), doc_y), 1, True)
+    norm_prod = tf.multiply(query_norm, doc_norm)
 
     cos_sim_raw = tf.truediv(prod, norm_prod)
     cos_sim = tf.transpose(tf.reshape(tf.transpose(cos_sim_raw), [NEG + 1, BS])) * 20
@@ -134,8 +135,8 @@ with tf.name_scope('Loss'):
     novalue = tf.slice(cos_sim, [0, 1], [-1, -1])
     novaluesum = tf.reduce_sum(novalue, 1, keepdims=True)
     binarylogit = tf.concat([yesvalue, novaluesum], 1)
-    loss = tf.losses.softmax_cross_entropy(labels = rightValue, logits = binarylogit)
-    tf.scalar_summary('loss', loss)
+    loss = tf.losses.softmax_cross_entropy(onehot_labels = rightValue, logits = binarylogit)
+    tf.summary.scalar('loss', loss)
 
 with tf.name_scope('Evaluate'):
     prob = tf.nn.softmax(cos_sim)
@@ -148,13 +149,13 @@ with tf.name_scope('Training'):
 # with tf.name_scope('Accuracy'):
 #     correct_prediction = tf.equal(tf.argmax(prob, 1), 0)
 #     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-#     tf.scalar_summary('accuracy', accuracy)
+#     tf.summary.scalar('accuracy', accuracy)
 
-merged = tf.merge_all_summaries()
+merged = tf.summary.merge_all()
 
 with tf.name_scope('Test'):
     average_loss = tf.placeholder(tf.float32)
-    loss_summary = tf.scalar_summary('average_loss', average_loss)
+    loss_summary = tf.summary.scalar('average_loss', average_loss)
 
 
 def pull_batch(query_data, doc_data, batch_idx):
@@ -177,6 +178,8 @@ def pull_batch(query_data, doc_data, batch_idx):
         np.transpose([np.array(doc_in.row, dtype=np.int64), np.array(doc_in.col, dtype=np.int64)]),
         np.array(doc_in.data, dtype=np.float),
         np.array(doc_in.shape, dtype=np.int64))
+    print("pulled_query_in.shape:%s"%(query_in.dense_shape))
+    print("pulled_doc_in.shape:%s"%(doc_in.dense_shape))
 
     # end = time.time()
     # print("Pull_batch time: %f" % (end - start))
@@ -201,8 +204,8 @@ saver = tf.train.Saver()
 
 with tf.Session(config=config) as sess:
     sess.run(tf.initialize_all_variables())
-    train_writer = tf.train.SummaryWriter(os.path.join(FLAGS.logdir, 'train'), sess.graph)
-    test_writer = tf.train.SummaryWriter(os.path.join(FLAGS.logdir, 'test'), sess.graph)
+    train_writer = tf.summary.FileWriter(os.path.join(FLAGS.logdir, 'train'), sess.graph)
+    test_writer = tf.summary.FileWriter(os.path.join(FLAGS.logdir, 'test'), sess.graph)
 
     # Actual execution
     start = time.time()
@@ -212,8 +215,8 @@ with tf.Session(config=config) as sess:
 
         if batch_idx % (train_pack_size / 64) == 0:
             progress = 100.0 * batch_idx / FLAGS.epoch_steps
-            sys.stdout.write("\r%.2f%% Epoch" % progress)
-            sys.stdout.flush()
+            print("\r%.2f%% Epoch" % progress)
+            
 
         sess.run(train_step, feed_dict=feed_dict(True, batch_idx % train_pack_size))
 
@@ -228,9 +231,7 @@ with tf.Session(config=config) as sess:
             train_loss = sess.run(loss_summary, feed_dict={average_loss: epoch_loss})
             train_writer.add_summary(train_loss, step + 1)
 
-            print ("\nEpoch #%-5d | Train Loss: %-4.3f | PureTrainTime: %-3.3fs" %
-                    (step / FLAGS.epoch_steps, epoch_loss, end - start))
-
+            print ("\nEpoch #%-5d | Train Loss: %-4.3f | PureTrainTime: %-3.3fs" %(step / FLAGS.epoch_steps, epoch_loss, end - start))
             epoch_loss = 0
             for i in range(test_pack_size):
                 loss_v = sess.run(loss, feed_dict=feed_dict(False, i))
@@ -244,4 +245,4 @@ with tf.Session(config=config) as sess:
             start = time.time()
             print ("Epoch #%-5d | Test  Loss: %-4.3f | Calc_LossTime: %-3.3fs" %
                    (step / FLAGS.epoch_steps, epoch_loss, start - end))
-        saver.save(sess, os.path.join(FLAGS.outputdir, 'my-model')
+    saver.save(sess, os.path.join(FLAGS.outputdir, 'my-model'))
