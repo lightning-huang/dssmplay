@@ -203,7 +203,7 @@ config.gpu_options.allow_growth = True
 saver = tf.train.Saver()
 
 with tf.Session(config=config) as sess:
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
     train_writer = tf.summary.FileWriter(os.path.join(FLAGS.logdir, 'train'), sess.graph)
     test_writer = tf.summary.FileWriter(os.path.join(FLAGS.logdir, 'test'), sess.graph)
 
