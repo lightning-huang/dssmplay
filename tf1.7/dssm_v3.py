@@ -129,13 +129,8 @@ with tf.name_scope('Loss'):
     # prob BS * 51 matrix
     # prob = tf.nn.softmax((cos_sim))
     # y BS * 51 matrix too
-    rightValue = np.array([[1, 0]] * BS)
-    
-    yesvalue = tf.slice(cos_sim, [0, 0], [-1, 1])
-    novalue = tf.slice(cos_sim, [0, 1], [-1, -1])
-    novaluesum = tf.reduce_sum(novalue, 1, keepdims=True)
-    binarylogit = tf.concat([yesvalue, novaluesum], 1)
-    loss = tf.losses.softmax_cross_entropy(onehot_labels = rightValue, logits = binarylogit)
+    label_value = np.array([[1] + [0] * NEG] * BS)
+    loss = tf.losses.softmax_cross_entropy(onehot_labels = label_value, logits = cos_sim)
     tf.summary.scalar('loss', loss)
 
 with tf.name_scope('Evaluate'):
