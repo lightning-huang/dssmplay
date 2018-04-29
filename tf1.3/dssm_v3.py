@@ -131,7 +131,7 @@ with tf.name_scope('Loss'):
     # prob = tf.nn.softmax((cos_sim))
     # y BS * 51 matrix too
     label_value = np.array([[1] + [0] * NEG] * BS)
-    loss = tf.losses.softmax_cross_entropy(onehot_labels = label_value, logits = cos_sim)
+    loss = tf.losses.softmax_cross_entropy(onehot_labels = label_value, logits = cos_sim + np.finfo(np.float32).eps)
     tf.summary.scalar('loss', loss)
 
 with tf.name_scope('Evaluate'):
