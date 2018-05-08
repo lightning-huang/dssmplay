@@ -83,7 +83,7 @@ def term_stream_to_idx_array(voc_dict, term_stream):
 
 
 def write_matrix(filename, qfile, dfile, voc_dict):
-    with open(filename,'r') as pair_stream:
+    with open(filename, 'r', encoding="utf8") as pair_stream:
         read_line = 0
         feature_rows = 0
         qrow = []
